@@ -39,3 +39,13 @@
 
 # debug information files
 *.dwo
+
+# IDEs and editors
+.idea/
+.vscode/
+
+build/
+
+*.DS_Store
+
+**__pycache__/
