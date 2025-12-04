@@ -13,21 +13,21 @@ namespace fs = std::filesystem;
 
 namespace Backup {
 
-// Constants for Tar Header
+// Tar头部常量
 const int BLOCK_SIZE = 512;
 const char* MAGIC = "ustar"; 
 const char* VERSION = "00";
 
-// --- Utility Helpers ---
+// --- 工具辅助函数 ---
 
-// Format number to octal string (for Header)
+// 将数字格式化为八进制字符串(用于头部)
 template<typename T>
 void toOctal(char* dest, T value, size_t size) {
     std::string fmt = "%0" + std::to_string(size - 1) + "lo"; 
     snprintf(dest, size, fmt.c_str(), (unsigned long)value);
 }
 
-// Parse octal string to number (for Unpack)
+// 将八进制字符串解析为数字(用于提取)
 uint64_t Packer::fromOctal(const char* ptr, size_t len) {
     std::string str(ptr, strnlen(ptr, len));
     if (str.empty()) return 0;
@@ -38,12 +38,12 @@ uint64_t Packer::fromOctal(const char* ptr, size_t len) {
     }
 }
 
-// --- Pack Implementation ---
+// --- 打包实现 ---
 
 bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputArchivePath) {
     std::ofstream archive(outputArchivePath, std::ios::binary | std::ios::trunc);
     if (!archive.is_open()) {
-        std::cerr << "Error: Could not create archive file: " << outputArchivePath << std::endl;
+        std::cerr << "错误: 无法创建归档文件: " << outputArchivePath << std::endl;
         return false;
     }
 
@@ -54,47 +54,47 @@ bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputA
 
         archive.write(reinterpret_cast<const char*>(&header), sizeof(TarHeader));
 
-        // Only REGULAR files have data blocks in Tar. 
-        // Symlinks store target in header.linkname, Directories have no data.
+        // 只有常规文件在Tar中有数据块。
+        // 符号链接将目标存储在header.linkname中，目录没有数据。
         if (file.type == FileType::REGULAR) {
             if (!writeFileContent(file, archive)) {
-                std::cerr << "Warning: Failed to write content for " << file.relativePath << std::endl;
+                std::cerr << "警告: 无法写入内容 " << file.relativePath << std::endl;
             }
         }
     }
 
-    // Write End of Archive (Two empty 512-byte blocks)
+    // 写入归档结束标记(两个空的512字节块)
     char endBlocks[BLOCK_SIZE * 2];
     std::memset(endBlocks, 0, sizeof(endBlocks));
     archive.write(endBlocks, sizeof(endBlocks));
 
     archive.close();
-    std::cout << "Packing completed: " << outputArchivePath << std::endl;
+    std::cout << "打包完成: " << outputArchivePath << std::endl;
     return true;
 }
 
 void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
-    // 1. Name & Prefix
+    // 1. 名称 & 前缀
     std::strncpy(header->name, file.relativePath.c_str(), sizeof(header->name) - 1);
 
-    // 2. Mode & Metadata
+    // 2. 权限 & 元数据
     toOctal(header->mode, file.permissions & 0777, sizeof(header->mode));
-    toOctal(header->uid, 0, sizeof(header->uid)); // Placeholder
-    toOctal(header->gid, 0, sizeof(header->gid)); // Placeholder
+    toOctal(header->uid, 0, sizeof(header->uid)); // 占位符
+    toOctal(header->gid, 0, sizeof(header->gid)); // 占位符
     toOctal(header->mtime, file.lastModified, sizeof(header->mtime));
 
-    // 3. Type & Size & Linkname
-    header->typeflag = '0'; // Default regular
+    // 3. 类型 & 大小 & 链接名
+    header->typeflag = '0'; // 默认常规文件
     uint64_t fileSize = 0;
 
     if (file.type == FileType::DIRECTORY) {
         header->typeflag = '5';
-        // Directories have size 0
+        // 目录大小为0
     } else if (file.type == FileType::SYMLINK) {
         header->typeflag = '2';
-        // In POSIX ustar, symlink size is 0, target is in linkname
-        // Assuming FileInfo has a member 'linkTarget' based on your provided snippet
-        // If not, this line needs adjustment.
+        // 在POSIX ustar中，符号链接大小为0，目标在linkname中
+        // 假课FileInfo有一个'linkTarget'成员(基于提供的代码片段)
+        // 如果没有，此行需要调整。
         // std::strncpy(header->linkname, file.linkTarget.c_str(), sizeof(header->linkname) - 1);
     } else {
         header->typeflag = '0';
@@ -103,16 +103,16 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
     
     toOctal(header->size, fileSize, sizeof(header->size));
 
-    // 4. Magic
+    // 4. 幻数
     std::strncpy(header->magic, MAGIC, sizeof(header->magic));
     std::strncpy(header->version, VERSION, sizeof(header->version));
 
-    // 5. Checksum
+    // 5. 校验和
     calculateChecksum(header);
 }
 
 void Packer::calculateChecksum(TarHeader* header) {
-    std::memset(header->chksum, ' ', 8); // Treat chksum as spaces for calculation
+    std::memset(header->chksum, ' ', 8); // 将校验和字段视为空格进行计算
     unsigned long sum = 0;
     unsigned char* bytes = reinterpret_cast<unsigned char*>(header);
     for (size_t i = 0; i < sizeof(TarHeader); ++i) sum += bytes[i];
@@ -125,7 +125,7 @@ bool Packer::writeFileContent(const FileInfo& file, std::ofstream& archive) {
 
     archive << input.rdbuf();
 
-    // Padding to 512 bytes
+    // 填充至512字节
     size_t padding = (BLOCK_SIZE - (file.size % BLOCK_SIZE)) % BLOCK_SIZE;
     if (padding > 0) {
         char pad[BLOCK_SIZE] = {0};
@@ -134,12 +134,12 @@ bool Packer::writeFileContent(const FileInfo& file, std::ofstream& archive) {
     return true;
 }
 
-// --- Unpack Implementation ---
+// --- 提取实现 ---
 
 bool Packer::unpack(const std::string& inputArchivePath, const std::string& outputDir) {
     std::ifstream archive(inputArchivePath, std::ios::binary);
     if (!archive.is_open()) {
-        std::cerr << "Error: Failed to open archive: " << inputArchivePath << std::endl;
+        std::cerr << "错误: 无法打开归档文件: " << inputArchivePath << std::endl;
         return false;
     }
 
@@ -149,21 +149,21 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
 
     TarHeader header;
     while (archive.read(reinterpret_cast<char*>(&header), sizeof(TarHeader))) {
-        // Check for End of Archive (empty block)
+        // 检查归档结束(空块)
         if (header.name[0] == '\0') {
-            // Read potentially second empty block and break
+            // 读取可能的第二个空块并退出
             break; 
         }
 
         if (!verifyChecksum(&header)) {
-            std::cerr << "Error: Checksum mismatch for file " << header.name << std::endl;
+            std::cerr << "错误: 文件校验和不匹配 " << header.name << std::endl;
             return false;
         }
 
         std::string relPath = header.name;
-        // Basic path security check: prevent ".." traversal
+        // 基本路径安全检查: 防止".."遍历
         if (relPath.find("..") != std::string::npos) {
-            std::cerr << "Warning: Skipping unsafe path " << relPath << std::endl;
+            std::cerr << "警告: 跳过不安全的路径 " << relPath << std::endl;
             continue; 
         }
 
@@ -173,36 +173,36 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
         uint64_t fileSize = fromOctal(header.size, sizeof(header.size));
         char type = header.typeflag ? header.typeflag : '0';
 
-        // Process Type
-        if (type == '5') { // Directory
+        // 处理文件类型
+        if (type == '5') { // 目录
             fs::create_directories(destPath);
         } 
-        else if (type == '2') { // Symlink
+        else if (type == '2') { // 符号链接
             std::string target = header.linkname;
             if (!target.empty()) {
                 if (fs::exists(destPath)) fs::remove(destPath);
-                // Create symlink
+                // 创建符号链接
                 if (symlink(target.c_str(), destPath.string().c_str()) != 0) {
-                    std::cerr << "Warning: Failed to create symlink " << destPath << std::endl;
+                    std::cerr << "警告: 无法创建符号链接 " << destPath << std::endl;
                 }
             }
         } 
-        else { // Regular File ('0' or '\0')
+        else { // 常规文件 ('0' 或 '\0')
             extractFileContent(archive, destPath.string(), fileSize);
         }
 
-        // Restore Metadata (Permissions & Time)
+        // 恢复元数据(权限和时间)
         restoreMetadata(destPath.string(), &header);
     }
 
-    std::cout << "Unpacking completed to: " << outputDir << std::endl;
+    std::cout << "提取完成到: " << outputDir << std::endl;
     return true;
 }
 
 bool Packer::verifyChecksum(const TarHeader* header) {
     TarHeader temp = *header;
     uint64_t storedSum = fromOctal(header->chksum, sizeof(header->chksum));
-    calculateChecksum(&temp); // Recalculate based on current data
+    calculateChecksum(&temp); // 基于当前数据重新计算
     uint64_t calcedSum = fromOctal(temp.chksum, sizeof(temp.chksum));
     return storedSum == calcedSum;
 }
@@ -210,8 +210,8 @@ bool Packer::verifyChecksum(const TarHeader* header) {
 void Packer::extractFileContent(std::ifstream& archive, const std::string& destPath, uint64_t size) {
     std::ofstream out(destPath, std::ios::binary | std::ios::trunc);
     if (!out.is_open()) {
-        std::cerr << "Error: Cannot create file " << destPath << std::endl;
-        // Skip data in archive to keep alignment
+        std::cerr << "错误: 无法创建文件 " << destPath << std::endl;
+        // 跳过归档中的数据以保持对齐
         archive.seekg((size + BLOCK_SIZE - 1) / BLOCK_SIZE * BLOCK_SIZE, std::ios::cur);
         return;
     }
@@ -227,7 +227,7 @@ void Packer::extractFileContent(std::ifstream& archive, const std::string& destP
         remaining -= toRead;
     }
 
-    // Skip padding in archive
+    // 跳过归档中的填充数据
     size_t padding = (BLOCK_SIZE - (size % BLOCK_SIZE)) % BLOCK_SIZE;
     if (padding > 0) {
         archive.ignore(padding);
@@ -242,20 +242,20 @@ void Packer::ensureParentDirExists(const std::string& path) {
 }
 
 void Packer::restoreMetadata(const std::string& path, const TarHeader* header) {
-    // 1. Permissions
+    // 1. 权限
     mode_t mode = static_cast<mode_t>(fromOctal(header->mode, sizeof(header->mode)));
     chmod(path.c_str(), mode);
 
-    // 2. Times (Access & Modification)
+    // 2. 时间信息(访问时间和修改时间)
     time_t mtime = static_cast<time_t>(fromOctal(header->mtime, sizeof(header->mtime)));
     struct timeval times[2];
-    times[0].tv_sec = mtime; // Access Time (using mtime as fallback)
+    times[0].tv_sec = mtime; // 访问时间(使用修改时间作为备选)
     times[0].tv_usec = 0;
-    times[1].tv_sec = mtime; // Modification Time
+    times[1].tv_sec = mtime; // 修改时间
     times[1].tv_usec = 0;
     
-    // utimes works on symlink target usually, lutimes needed for link itself (less portable)
-    // For this lab, applying to file/dir path is sufficient.
+    // utimes通常作用于符号链接的目标，lutimes需要用于链接本身(可移植性较差)
+    // 对于本项目，应用于文件/目录路径就足够了。
     utimes(path.c_str(), times);
 }
 

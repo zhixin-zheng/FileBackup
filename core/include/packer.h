@@ -8,7 +8,7 @@
 namespace Backup {
 
 /**
- * @brief Packer class responsible for archiving/extracting files using .tar format (POSIX UStar).
+ * @brief Packer类负责使用.tar格式(POSIX UStar)对文件进行归档/提取操作。
  */
 class Packer {
 public:
@@ -16,55 +16,55 @@ public:
     ~Packer() = default;
 
     /**
-     * @brief Packs the given list of files into a single .tar archive.
-     * @param files: The list of files metadata collected by Traverser.
-     * @param outputArchivePath: The path where the .tar file will be created.
-     * @return true if packing is successful, false otherwise.
+     * @brief 将给定的文件列表打包成一个.tar归档文件。
+     * @param files: 由Traverser收集的文件元数据列表。
+     * @param outputArchivePath: .tar文件将被创建的路径。
+     * @return 如果打包成功返回true，否则返回false。
      */
     bool pack(const std::vector<FileInfo>& files, const std::string& outputArchivePath);
 
     /**
-     * @brief Extracts files from a .tar archive to a destination directory.
-     * @param inputArchivePath: The path to the existing .tar file.
-     * @param outputDir: The destination directory for extracted files.
-     * @return true if unpacking is successful, false otherwise.
+     * @brief 从.tar归档文件中提取文件到目标目录。
+     * @param inputArchivePath: 现有.tar文件的路径。
+     * @param outputDir: 提取文件的目标目录。
+     * @return 如果提取成功返回true，否则返回false。
      */
     bool unpack(const std::string& inputArchivePath, const std::string& outputDir);
 
 private:
-    // POSIX UStar Header Structure (512 bytes)
+    // POSIX UStar头部结构 (512字节)
     struct TarHeader {
-        char name[100];     // File name
-        char mode[8];       // Permissions
-        char uid[8];        // User ID
-        char gid[8];        // Group ID
-        char size[12];      // File size
-        char mtime[12];     // Modification time
-        char chksum[8];     // Checksum
-        char typeflag;      // File type
-        char linkname[100]; // Link name (target of symlink)
+        char name[100];     // 文件名
+        char mode[8];       // 文件权限
+        char uid[8];        // 用户ID
+        char gid[8];        // 组ID
+        char size[12];      // 文件大小
+        char mtime[12];     // 修改时间
+        char chksum[8];     // 校验和
+        char typeflag;      // 文件类型
+        char linkname[100]; // 链接名称(符号链接的目标)
         char magic[6];      // "ustar"
         char version[2];    // "00"
-        char uname[32];     // User name
-        char gname[32];     // Group name
-        char devmajor[8];   // Device major number
-        char devminor[8];   // Device minor number
-        char prefix[155];   // Filename prefix
-        char padding[12];   // Padding to 512 bytes
+        char uname[32];     // 用户名
+        char gname[32];     // 组名
+        char devmajor[8];   // 设备主号
+        char devminor[8];   // 设备副号
+        char prefix[155];   // 文件名前缀
+        char padding[12];   // 填充至512字节
     };
 
-    // --- Helpers for Packing ---
+    // --- 打包辅助函数 ---
     void fillHeader(const FileInfo& file, TarHeader* header);
     void calculateChecksum(TarHeader* header);
     bool writeFileContent(const FileInfo& file, std::ofstream& archive);
 
-    // --- Helpers for Unpacking ---
+    // --- 提取辅助函数 ---
     bool verifyChecksum(const TarHeader* header);
     void extractFileContent(std::ifstream& archive, const std::string& destPath, uint64_t size);
     void ensureParentDirExists(const std::string& path);
     void restoreMetadata(const std::string& path, const TarHeader* header);
     
-    // --- Utils ---
+    // --- 工具函数 ---
     uint64_t fromOctal(const char* ptr, size_t len);
 };
 
