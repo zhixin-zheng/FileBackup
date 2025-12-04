@@ -14,7 +14,7 @@ enum class FileType {
     UNKNOWN
 };
 
-// 文件元数据结构体
+// File metadata structure
 struct FileInfo {
     std::string relativePath;
     std::string absolutePath;
@@ -22,6 +22,8 @@ struct FileInfo {
     uint64_t size;
     mode_t permissions;
     time_t lastModified;
+    uid_t UID;
+    gid_t GID;
 };
 
 } // namespace Backup
