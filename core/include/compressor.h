@@ -13,7 +13,7 @@ struct HuffmanNode {
     HuffmanNode* right;
 
     HuffmanNode(uint8_t b, uint64_t f) : byte(b), freq(f), left(nullptr), right(nullptr) {}
-    HuffmanNode(HuffmanNode* l, HuffmanNode* r) : byte(0), freq(l->freq + r->freq), left(l), right(r) {}
+    HuffmanNode(uint8_t f, HuffmanNode* l, HuffmanNode* r) : byte(0), freq(f), left(l), right(r) {}
 
     bool isLeaf() const { return left == nullptr && right == nullptr; }
 };
@@ -38,8 +38,26 @@ public:
     std::vector<uint8_t> decompress(const std::vector<uint8_t>& input);
 
 private:
+
+    /**
+     * @brief 构建哈夫曼树
+     * @param frequencies: 字节频率表
+     * @return 哈夫曼树的根节点
+     */
     HuffmanNode* buildHuffmanTree(const std::vector<uint64_t>& frequencies);
+
+    /**
+     * @brief 生成哈夫曼编码表
+     * @param node: 当前节点
+     * @param prefix: 当前编码前缀
+     * @param codes: 哈夫曼编码表
+     */
     void generateCodes(HuffmanNode* node, const std::string& prefix, std::unordered_map<uint8_t, std::string>& codes);
+    
+    /**
+     * @brief 删除哈夫曼树
+     * @param node: 当前节点
+     */
     void deleteTree(HuffmanNode* node);
 
     /**

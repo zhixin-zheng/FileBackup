@@ -26,19 +26,28 @@ add_library(backup_core SHARED ${CORE_SOURCES})
 
 
 enable_testing()
+include(GoogleTest)
 
-add_executable(run_unit_tests 
-    src/traverser.cpp          # <--- 包含你的实现文件
-    tests/test_traverser.cpp   # <--- 包含上面的测试代码
-)
+# 测试 遍历器 ------
 
-target_include_directories(run_unit_tests PRIVATE include)
+add_executable(test_traverser tests/test_traverser.cpp)
 
-target_link_libraries(run_unit_tests 
+target_link_libraries(test_traverser 
     PRIVATE 
-    GTest::gtest
+    backup_core
     GTest::gtest_main
 )
 
-include(GoogleTest)
-gtest_discover_tests(run_unit_tests)
+gtest_discover_tests(test_traverser)
+
+# 测试 压缩器 -----
+
+add_executable(test_compressor tests/test_compressor.cpp)
+
+target_link_libraries(test_compressor 
+    PRIVATE 
+    backup_core 
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_compressor)
