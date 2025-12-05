@@ -18,11 +18,17 @@ FetchContent_MakeAvailable(googletest)
 
 message(STATUS "GoogleTest 配置完成")
 
+find_package(OpenSSL REQUIRED)
+message(STATUS "Found OpenSSL: ${OPENSSL_INCLUDE_DIR}")
 
 include_directories(${CMAKE_SOURCE_DIR}/include)
+include_directories(${OPENSSL_INCLUDE_DIR})
+
 file(GLOB CORE_SOURCES "src/*.cpp")
 
 add_library(backup_core SHARED ${CORE_SOURCES})
+
+target_link_libraries(backup_core OpenSSL::Crypto)
 
 
 enable_testing()
