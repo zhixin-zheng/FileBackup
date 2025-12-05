@@ -45,6 +45,7 @@
 .vscode/
 
 build/
+test_examples/
 
 *.DS_Store
 
