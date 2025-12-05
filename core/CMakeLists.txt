@@ -51,3 +51,15 @@ target_link_libraries(test_compressor
 )
 
 gtest_discover_tests(test_compressor)
+
+# 测试 打包器 -----
+
+add_executable(test_packer tests/test_packer.cpp)
+
+target_link_libraries(test_packer 
+    PRIVATE 
+    backup_core 
+    GTest::gtest_main
+)
+
+gtest_discover_tests(test_packer)
