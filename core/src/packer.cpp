@@ -67,11 +67,53 @@ bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputA
 }
 
 void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
-    // 1. 名称 & 前缀
-    std::strncpy(header->name, file.relativePath.c_str(), sizeof(header->name) - 1);
+    // 1. 名称 & 前缀 (Name & Prefix) - 路径拆分逻辑
+    std::string path = file.relativePath;
+    size_t pathLen = path.length();
+
+    if (pathLen <= 100) {
+        // Case A: 短路径，直接存入 name
+        std::strncpy(header->name, path.c_str(), sizeof(header->name)); 
+    } else {
+        // Case B: 长路径，需要拆分为 prefix 和 name
+        // 限制：name <= 100, prefix <= 155
+        // 必须在 '/' 处切分，'/' 本身不存储
+        
+        bool splitFound = false;
+        // 寻找合适的切分点。切分点 index 是 '/' 的位置。
+        // name = path.substr(index + 1) -> 长度必须 <= 100
+        // prefix = path.substr(0, index) -> 长度必须 <= 155
+        
+        // 为了使 name <= 100，切分点 index 至少要在 pathLen - 101 的位置
+        size_t minSplitIndex = (pathLen > 101) ? (pathLen - 101) : 0;
+        
+        // 遍历寻找最合适的 '/'（通常找最右边的，让 name 尽可能短，prefix 利用率高）
+        for (size_t i = minSplitIndex; i < pathLen && i <= 155; ++i) {
+            if (path[i] == '/') {
+                std::string prefixStr = path.substr(0, i);
+                std::string nameStr = path.substr(i + 1);
+                
+                // 再次确认长度（逻辑上应该满足，但做个双重检查）
+                if (prefixStr.length() <= 155 && nameStr.length() <= 100) {
+                    std::strncpy(header->prefix, prefixStr.c_str(), sizeof(header->prefix));
+                    std::strncpy(header->name, nameStr.c_str(), sizeof(header->name));
+                    splitFound = true;
+                    // 我们可以在找到第一个合法点时停止，或者继续找更优的。
+                    // 这里找到满足条件的最靠前的切分点即可，或者上面的循环如果是从右向左找会更好。
+                    // 现在的循环是从左向右找满足 name<=100 的点，所以找到的第一个 i 会让 name 接近 100。
+                }
+            }
+        }
+
+        if (!splitFound) {
+            std::cerr << "Warning: Path too long to store in Tar header (truncated): " << path << std::endl;
+            std::strncpy(header->name, path.c_str(), sizeof(header->name));
+        }
+    }
 
     // 2. 权限 & 元数据
     toOctal(header->mode, file.permissions & 0777, sizeof(header->mode));
+    // 假设 FileInfo 已包含这些扩展字段
     toOctal(header->uid, file.UID, sizeof(header->uid));
     toOctal(header->gid, file.GID, sizeof(header->gid));
     toOctal(header->mtime, file.lastModified, sizeof(header->mtime));
@@ -85,7 +127,8 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
         // 目录大小为0
     } else if (file.type == FileType::SYMLINK) {
         header->typeflag = '2';
-        // 在POSIX ustar中，符号链接大小为0，目标在linkname中
+        // 符号链接大小为0，目标在 linkname 中
+        // 假设 FileInfo 已经读取了 linkTarget
         std::strncpy(header->linkname, file.linkTarget.c_str(), sizeof(header->linkname) - 1);
     } else {
         header->typeflag = '0';
@@ -99,19 +142,20 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
     std::strncpy(header->version, VERSION, sizeof(header->version));
 
     // 5. 用户名和组名
-    std::strncpy(header->uname, file.userName.c_str(), sizeof(header->uname) - 1);
-    std::strncpy(header->gname, file.groupName.c_str(), sizeof(header->gname) - 1);
+    std::strncpy(header->uname, file.userName.c_str(), sizeof(header->uname));
+    std::strncpy(header->gname, file.groupName.c_str(), sizeof(header->gname));
 
     // 6. 设备号（仅用于字符设备和块设备）
     if (file.type == FileType::CHARACTER_DEVICE || file.type == FileType::BLOCK_DEVICE) {
+        header->typeflag = (file.type == FileType::CHARACTER_DEVICE) ? '3' : '4';
         toOctal(header->devmajor, file.deviceMajor, sizeof(header->devmajor));
         toOctal(header->devminor, file.deviceMinor, sizeof(header->devminor));
     } else {
-        std::memset(header->devmajor, '0', sizeof(header->devmajor));
-        std::memset(header->devminor, '0', sizeof(header->devminor));
+        // 非设备文件填空字符或0
+        // 标准通常留空，toOctal 填的是数字字符串，这里手动置零或空格均可，通常保持为0
     }
 
-    // 7. 校验和
+    // 7. 校验和 (必须是最后计算，因为它依赖于 header 中其他所有字段的值)
     calculateChecksum(header);
 }
 
