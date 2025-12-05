@@ -9,14 +9,7 @@
 #include <sys/time.h>
 #include <unistd.h> // for symlink, unlink
 
-namespace fs = std::filesystem;
-
 namespace Backup {
-
-// Tar头部常量
-const int BLOCK_SIZE = 512;
-const char* MAGIC = "ustar"; 
-const char* VERSION = "00";
 
 // --- 工具辅助函数 ---
 
@@ -43,7 +36,7 @@ uint64_t Packer::fromOctal(const char* ptr, size_t len) {
 bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputArchivePath) {
     std::ofstream archive(outputArchivePath, std::ios::binary | std::ios::trunc);
     if (!archive.is_open()) {
-        std::cerr << "错误: 无法创建归档文件: " << outputArchivePath << std::endl;
+        std::cerr << "error: cannot create archive file " << outputArchivePath << std::endl;
         return false;
     }
 
@@ -58,7 +51,7 @@ bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputA
         // 符号链接将目标存储在header.linkname中，目录没有数据。
         if (file.type == FileType::REGULAR) {
             if (!writeFileContent(file, archive)) {
-                std::cerr << "警告: 无法写入内容 " << file.relativePath << std::endl;
+                std::cerr << "warning: cannot write content for " << file.relativePath << std::endl;
             }
         }
     }
@@ -79,8 +72,8 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
 
     // 2. 权限 & 元数据
     toOctal(header->mode, file.permissions & 0777, sizeof(header->mode));
-    toOctal(header->uid, 0, sizeof(header->uid)); // 占位符
-    toOctal(header->gid, 0, sizeof(header->gid)); // 占位符
+    toOctal(header->uid, file.UID, sizeof(header->uid));
+    toOctal(header->gid, file.GID, sizeof(header->gid));
     toOctal(header->mtime, file.lastModified, sizeof(header->mtime));
 
     // 3. 类型 & 大小 & 链接名
@@ -93,9 +86,7 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
     } else if (file.type == FileType::SYMLINK) {
         header->typeflag = '2';
         // 在POSIX ustar中，符号链接大小为0，目标在linkname中
-        // 假课FileInfo有一个'linkTarget'成员(基于提供的代码片段)
-        // 如果没有，此行需要调整。
-        // std::strncpy(header->linkname, file.linkTarget.c_str(), sizeof(header->linkname) - 1);
+        std::strncpy(header->linkname, file.linkTarget.c_str(), sizeof(header->linkname) - 1);
     } else {
         header->typeflag = '0';
         fileSize = file.size;
@@ -107,7 +98,20 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
     std::strncpy(header->magic, MAGIC, sizeof(header->magic));
     std::strncpy(header->version, VERSION, sizeof(header->version));
 
-    // 5. 校验和
+    // 5. 用户名和组名
+    std::strncpy(header->uname, file.userName.c_str(), sizeof(header->uname) - 1);
+    std::strncpy(header->gname, file.groupName.c_str(), sizeof(header->gname) - 1);
+
+    // 6. 设备号（仅用于字符设备和块设备）
+    if (file.type == FileType::CHARACTER_DEVICE || file.type == FileType::BLOCK_DEVICE) {
+        toOctal(header->devmajor, file.deviceMajor, sizeof(header->devmajor));
+        toOctal(header->devminor, file.deviceMinor, sizeof(header->devminor));
+    } else {
+        std::memset(header->devmajor, '0', sizeof(header->devmajor));
+        std::memset(header->devminor, '0', sizeof(header->devminor));
+    }
+
+    // 7. 校验和
     calculateChecksum(header);
 }
 
@@ -143,8 +147,8 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
         return false;
     }
 
-    if (!fs::exists(outputDir)) {
-        fs::create_directories(outputDir);
+    if (!std::filesystem::exists(outputDir)) {
+        std::filesystem::create_directories(outputDir);
     }
 
     TarHeader header;
@@ -167,7 +171,7 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
             continue; 
         }
 
-        fs::path destPath = fs::path(outputDir) / relPath;
+        std::filesystem::path destPath = std::filesystem::path(outputDir) / relPath;
         ensureParentDirExists(destPath.string());
 
         uint64_t fileSize = fromOctal(header.size, sizeof(header.size));
@@ -175,12 +179,12 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
 
         // 处理文件类型
         if (type == '5') { // 目录
-            fs::create_directories(destPath);
+            std::filesystem::create_directories(destPath);
         } 
         else if (type == '2') { // 符号链接
             std::string target = header.linkname;
             if (!target.empty()) {
-                if (fs::exists(destPath)) fs::remove(destPath);
+                if (std::filesystem::exists(destPath)) std::filesystem::remove(destPath);
                 // 创建符号链接
                 if (symlink(target.c_str(), destPath.string().c_str()) != 0) {
                     std::cerr << "警告: 无法创建符号链接 " << destPath << std::endl;
@@ -235,9 +239,9 @@ void Packer::extractFileContent(std::ifstream& archive, const std::string& destP
 }
 
 void Packer::ensureParentDirExists(const std::string& path) {
-    fs::path p(path);
+    std::filesystem::path p(path);
     if (p.has_parent_path()) {
-        fs::create_directories(p.parent_path());
+        std::filesystem::create_directories(p.parent_path());
     }
 }
 
