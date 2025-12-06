@@ -89,3 +89,14 @@ target_link_libraries(test_integration_1
     backup_core
     GTest::gtest_main
 )
+
+# 集成测试 2 (遍历器、打包器、压缩器、加密器)
+
+add_executable(test_backup_system tests/test_backup_system.cpp)
+
+target_link_libraries(test_backup_system 
+    PRIVATE 
+    backup_core
+    GTest::gtest_main
+)
+
