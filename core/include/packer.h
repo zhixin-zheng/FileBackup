@@ -9,8 +9,8 @@ namespace Backup {
 
 // Tar头部常量
 const int BLOCK_SIZE = 512;
-const char* MAGIC = "ustar"; 
-const char* VERSION = "00";
+extern const char* MAGIC; 
+extern const char* VERSION;
 
 /**
  * @brief Packer类负责使用.tar格式(POSIX UStar)对文件进行归档/提取操作。

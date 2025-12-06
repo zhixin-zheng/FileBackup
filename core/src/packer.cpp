@@ -11,6 +11,9 @@
 
 namespace Backup {
 
+const char* MAGIC = "ustar"; 
+const char* VERSION = "00";
+
 // --- 工具辅助函数 ---
 
 // 将数字格式化为八进制字符串(用于头部)
