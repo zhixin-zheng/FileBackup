@@ -70,6 +70,16 @@ target_link_libraries(test_packer
 
 gtest_discover_tests(test_packer)
 
+# 测试 加密器
+
+add_executable(test_encryptor tests/test_encryptor.cpp)
+
+target_link_libraries(test_encryptor 
+    PRIVATE 
+    backup_core
+    GTest::gtest_main
+)
+
 # 集成测试 1 (遍历器、打包器、压缩器)
 
 add_executable(test_integration_1 tests/test_integration_1.cpp)
@@ -77,4 +87,5 @@ add_executable(test_integration_1 tests/test_integration_1.cpp)
 target_link_libraries(test_integration_1 
     PRIVATE 
     backup_core
+    GTest::gtest_main
 )
