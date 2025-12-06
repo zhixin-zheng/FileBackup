@@ -3,7 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
-#include <memory> // 用于 std::unique_ptr (虽然本例中使用原始指针)
+#include <memory>
 
 namespace Backup {
 
