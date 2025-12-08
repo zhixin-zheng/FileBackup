@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdint>
 #include "common.h"
+#include "filter.h"
 
 namespace Backup {
 
@@ -27,6 +28,12 @@ public:
      * @param password: 用户密码（如果为空则不加密）
      */
     void setPassword(const std::string& password);
+
+    /**
+     * @brief 设置文件过滤器
+     * @param options: 过滤选项
+     */
+    void setFilter(const Filter& filter);
 
     /**
      * @brief 执行备份操作
@@ -59,10 +66,14 @@ private:
     int m_compressionAlgo;      // 当前选用的压缩算法
     std::string m_password;     // 加密密码
     bool m_isEncrypted;         // 是否启用加密
+    Filter m_filter;            // 备份过滤器
 
     // 辅助函数：读写文件
     std::vector<uint8_t> readFile(const std::string& path);
     bool writeFile(const std::string& path, const std::vector<uint8_t>& data);
+
+    // 应用过滤器
+    std::vector<FileInfo> applyFilter(const std::vector<FileInfo>& files);
 };
 
 } // namespace Backup

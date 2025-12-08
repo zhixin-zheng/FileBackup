@@ -3,16 +3,20 @@
 #include "packer.h"
 #include "compressor.h"
 #include "encryptor.h"
+#include "common.h"
 #include <iostream>
 #include <fstream>
 #include <filesystem>
 #include <stdexcept>
+#include <regex>
 
 namespace Backup {
 
 BackupSystem::BackupSystem() 
     : m_compressionAlgo(static_cast<int>(CompressionAlgorithm::LZSS)), 
-      m_isEncrypted(false) {}
+      m_isEncrypted(false) {
+      m_filter.enabled = false; // 默认不启用过滤器
+}
 
 BackupSystem::~BackupSystem() {}
 
@@ -23,6 +27,11 @@ void BackupSystem::setCompressionAlgorithm(int algo) {
 void BackupSystem::setPassword(const std::string& password) {
     m_password = password;
     m_isEncrypted = !password.empty();
+}
+
+void BackupSystem::setFilter(const Filter& filter) {
+    m_filter = filter;
+    m_filter.enabled = true;
 }
 
 // ---------------------------------------------------------
@@ -40,6 +49,16 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstFile)
             return false;
         }
         std::cout << "[Backup] Scanned " << files.size() << " files." << std::endl;
+
+
+        if (m_filter.enabled) {
+            files = applyFilter(files);
+            std::cout << "[Backup] After filtering, " << files.size() << " files remain." << std::endl;
+            if (files.empty()) {
+                std::cerr << "[Backup] Warning: No files match the filter criteria." << std::endl;
+                return false;
+            }
+        }
 
         // 2. 打包 (Pack) -> 这里需要 Packer 支持输出到内存流
         // 由于目前的 Packer::pack 是直接写文件的，我们需要稍微变通一下。
@@ -90,6 +109,77 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstFile)
         std::cerr << "[Backup] Error: " << e.what() << std::endl;
         return false;
     }
+}
+
+std::string escapeRegex(const std::string& str) {
+    // 需要转义的字符: . ^ $ | ( ) [ ] { } * + ? \
+    // static const std::regex specialChars{R"([-[\]{}()*+?.,\^$|#\s])"};
+    static const std::regex specialChars{R"([\[\]{}()*+?.,\^$|#\s-])"};
+    return std::regex_replace(str, specialChars, R"(\$&)");
+}
+
+std::vector<FileInfo> BackupSystem::applyFilter(const std::vector<FileInfo>& files) {
+    std::vector<FileInfo> results;
+    std::regex namePattern;
+    bool useRegex = false;
+
+    if (!m_filter.nameKeywords.empty()) {
+        std::string combinedPattern = ".*(";
+        for (size_t i = 0; i < m_filter.nameKeywords.size(); ++i) {
+            if (i > 0) combinedPattern += "|";
+            combinedPattern += escapeRegex(m_filter.nameKeywords[i]);
+        }
+        combinedPattern += ").*"; // 匹配文件名中包含任意关键词
+        
+        try {
+            namePattern = std::regex(combinedPattern);
+            useRegex = true;
+            // std::cout << "[Filter] Generated Regex from Keywords: " << combinedPattern << std::endl;
+        } catch (...) {
+            std::cerr << "[Filter] Error generating regex from keywords." << std::endl;
+        }
+    } 
+    else if (!m_filter.nameRegex.empty()) {
+        namePattern = std::regex(m_filter.nameRegex);
+        useRegex = true;
+    }
+    for (const auto& file : files) {
+        if (file.type == FileType::DIRECTORY) {
+            results.push_back(file);
+            continue;
+        }
+
+        if (m_filter.minSize > 0 && file.size < m_filter.minSize) continue;
+        if (m_filter.maxSize > 0 && file.size > m_filter.maxSize) continue;
+
+        if (m_filter.startTime > 0 && file.lastModified < m_filter.startTime) continue;
+        if (m_filter.endTime > 0 && file.lastModified > m_filter.endTime) continue;
+
+        if (!m_filter.userName.empty() && file.userName != m_filter.userName) continue;
+
+        if (!m_filter.suffixes.empty()) {
+            bool suffixMatch = false;
+            for (const auto& suffix : m_filter.suffixes) {
+                if (file.relativePath.size() >= suffix.size() && file.relativePath.substr(file.relativePath.size() - suffix.size(), suffix.size()) == suffix) {
+                    suffixMatch = true;
+                    break;
+                }
+            }
+            if (!suffixMatch) continue;
+        }
+
+        if (useRegex && !std::regex_search(file.relativePath, namePattern)) continue;
+
+        // 不包含相对路径的写法
+        // if (!m_filter.nameRegex.empty()) {
+        //     std::filesystem::path p(file.relativePath);
+        //     std::string fname = p.filename().string();
+        //     if (!std::regex_match(fname, namePattern)) continue;
+        // }
+
+        results.push_back(file);
+    }
+    return results;
 }
 
 // ---------------------------------------------------------
