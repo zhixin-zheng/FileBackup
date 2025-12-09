@@ -6,17 +6,23 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(FetchContent)
 
-message(STATUS "正在配置 GoogleTest (将自动下载)...")
+message(STATUS "正在配置 GoogleTest...")
 
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.zip
   DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
-
 FetchContent_MakeAvailable(googletest)
-
 message(STATUS "GoogleTest 配置完成")
+
+message(STATUS "正在配置 Pybind11...")
+FetchContent_Declare(
+  pybind11
+  URL https://github.com/pybind/pybind11/archive/refs/tags/v2.11.1.zip
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(pybind11)
 
 find_package(OpenSSL REQUIRED)
 message(STATUS "Found OpenSSL: ${OPENSSL_INCLUDE_DIR}")
@@ -25,10 +31,14 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 file(GLOB CORE_SOURCES "src/*.cpp")
+list(REMOVE_ITEM CORE_SOURCES "${CMAKE_SOURCE_DIR}/src/bindings.cpp")
 
 add_library(backup_core SHARED ${CORE_SOURCES})
 
 target_link_libraries(backup_core OpenSSL::Crypto)
+
+pybind11_add_module(backup_core_py src/bindings.cpp)
+target_link_libraries(backup_core_py PRIVATE backup_core)
 
 
 enable_testing()
