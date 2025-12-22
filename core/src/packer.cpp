@@ -173,7 +173,6 @@ void Packer::calculateChecksum(TarHeader* header) {
 bool Packer::writeFileContent(const FileInfo& file, std::ofstream& archive) {
     std::ifstream input(file.absolutePath, std::ios::binary);
     if (!input.is_open()) return false;
-
     archive << input.rdbuf();
 
     // 填充至512字节
