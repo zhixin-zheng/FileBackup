@@ -47,6 +47,7 @@
 build/
 test_examples/
 sandbox_backup_system/
+venv/
 
 *.DS_Store
 
