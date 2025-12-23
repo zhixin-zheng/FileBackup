@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime
 
+# --- 环境路径配置 ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
 build_dir = os.path.join(project_root, "build")
@@ -25,7 +26,8 @@ except ImportError:
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                              QTabWidget, QFileDialog, QComboBox, QCheckBox, 
-                             QGroupBox, QProgressBar, QMessageBox, QDateEdit)
+                             QGroupBox, QProgressBar, QMessageBox, QDateEdit,
+                             QSpinBox, QTextEdit)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate
 
 # --- 样式表 (美化) ---
@@ -122,11 +124,13 @@ class WorkerThread(QThread):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("SecureBackup Pro - C++ Core")
+        self.setWindowTitle("FileBackup")
         self.resize(700, 650)
         self.setStyleSheet(STYLESHEET)
 
         self.backup_system = core.BackupSystem()
+        self.scheduler = core.BackupScheduler() 
+        self.scheduler.start() 
         
         # 主布局
         central_widget = QWidget()
@@ -139,11 +143,16 @@ class MainWindow(QMainWindow):
 
         self.init_backup_tab()
         self.init_restore_tab()
+        self.init_schedule_tab() 
 
         # 底部状态
         self.status_label = QLabel("Ready")
         self.status_label.setStyleSheet("color: #666; margin-top: 5px;")
         main_layout.addWidget(self.status_label)
+
+    def closeEvent(self, event):
+        self.scheduler.stop()
+        event.accept()
 
     def init_backup_tab(self):
         tab = QWidget()
@@ -164,13 +173,13 @@ class MainWindow(QMainWindow):
         h1.addWidget(btn_src)
         layout_io.addLayout(h1)
 
-        # 目标文件
+        # 目标目录（或目标文件）
         h2 = QHBoxLayout()
         self.dst_file_edit = QLineEdit()
-        self.dst_file_edit.setPlaceholderText("保存备份文件的位置...")
-        btn_dst = QPushButton("保存为...")
-        btn_dst.clicked.connect(lambda: self.save_file(self.dst_file_edit))
-        h2.addWidget(QLabel("目标文件:"))
+        self.dst_file_edit.setPlaceholderText("选择存放目录 (留空则默认在源目录同级生成 .bin)")
+        btn_dst = QPushButton("浏览...")
+        btn_dst.clicked.connect(lambda: self.browse_dir(self.dst_file_edit))
+        h2.addWidget(QLabel("存放目录:"))
         h2.addWidget(self.dst_file_edit)
         h2.addWidget(btn_dst)
         layout_io.addLayout(h2)
@@ -181,11 +190,10 @@ class MainWindow(QMainWindow):
         # 2. 压缩与加密
         grp_opt = QGroupBox("安全与压缩")
         layout_opt = QHBoxLayout()
-        
+
         self.combo_algo = QComboBox()
         self.combo_algo.addItems(["Huffman (更紧凑)", "LZSS (更快)", "Joined (混合)"])
-        self.combo_algo.setCurrentIndex(1) # Default LZSS
-        
+        self.combo_algo.setCurrentIndex(1) 
         self.pwd_edit = QLineEdit()
         self.pwd_edit.setPlaceholderText("设置密码 (留空则不加密)")
         self.pwd_edit.setEchoMode(QLineEdit.EchoMode.Password)
@@ -197,11 +205,11 @@ class MainWindow(QMainWindow):
         grp_opt.setLayout(layout_opt)
         layout.addWidget(grp_opt)
 
-        # 3. 高级过滤 (新增功能)
+        # 3. 高级过滤
         grp_filter = QGroupBox("高级过滤 (可选)")
         grp_filter.setCheckable(True)
         grp_filter.setChecked(False)
-        self.grp_filter = grp_filter # 保存引用以便读取状态
+        self.grp_filter = grp_filter 
         layout_filter = QVBoxLayout()
 
         # 后缀名
@@ -303,6 +311,100 @@ class MainWindow(QMainWindow):
         
         self.tabs.addTab(tab, "还原 (Restore)")
 
+    # --- 计划任务页面 ---
+    def init_schedule_tab(self):
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        grp_cfg = QGroupBox("自动化任务配置")
+        l_cfg = QVBoxLayout()
+
+        # 1. 监控源目录
+        h_src = QHBoxLayout()
+        self.sch_src_edit = QLineEdit()
+        self.sch_src_edit.setPlaceholderText("选择需要持续监控或定期备份的目录")
+        btn_src = QPushButton("监控目录...")
+        btn_src.clicked.connect(lambda: self.browse_dir(self.sch_src_edit))
+        h_src.addWidget(QLabel("源目录:"))
+        h_src.addWidget(self.sch_src_edit)
+        h_src.addWidget(btn_src)
+        l_cfg.addLayout(h_src)
+
+        # 2. 存放目录
+        h_dst = QHBoxLayout()
+        self.sch_dst_edit = QLineEdit()
+        self.sch_dst_edit.setPlaceholderText("选择存放自动备份文件的文件夹")
+        btn_dst = QPushButton("存放目录...")
+        btn_dst.clicked.connect(lambda: self.browse_dir(self.sch_dst_edit))
+        h_dst.addWidget(QLabel("存放目录:"))
+        h_dst.addWidget(self.sch_dst_edit)
+        h_dst.addWidget(btn_dst)
+        l_cfg.addLayout(h_dst)
+
+        # 3. 安全与压缩
+        h_sec = QHBoxLayout()
+        self.sch_combo_algo = QComboBox()
+        self.sch_combo_algo.addItems(["Huffman", "LZSS", "Joined"])
+        self.sch_combo_algo.setCurrentIndex(1)
+        
+        self.sch_pwd_edit = QLineEdit()
+        self.sch_pwd_edit.setPlaceholderText("自动备份加密密码")
+        self.sch_pwd_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        
+        h_sec.addWidget(QLabel("算法:"))
+        h_sec.addWidget(self.sch_combo_algo)
+        h_sec.addWidget(QLabel("密码:"))
+        h_sec.addWidget(self.sch_pwd_edit)
+        l_cfg.addLayout(h_sec)
+
+        # 4. 模式选择
+        h_mode = QHBoxLayout()
+        self.combo_mode = QComboBox()
+        self.combo_mode.addItems(["定时备份 (Interval)", "实时监控 (Real-time)"])
+        
+        self.spin_interval = QSpinBox()
+        self.spin_interval.setRange(5, 86400) 
+        self.spin_interval.setValue(60)
+        self.spin_interval.setSuffix(" 秒")
+        
+        h_mode.addWidget(QLabel("模式:"))
+        h_mode.addWidget(self.combo_mode)
+        h_mode.addWidget(QLabel("间隔:"))
+        h_mode.addWidget(self.spin_interval)
+        l_cfg.addLayout(h_mode)
+
+        # 5. 淘汰策略
+        h_prune = QHBoxLayout()
+        self.sch_prefix = QLineEdit("auto_backup")
+        self.sch_prefix.setPlaceholderText("文件名前缀")
+        
+        self.spin_keep = QSpinBox()
+        self.spin_keep.setRange(1, 100)
+        self.spin_keep.setValue(5)
+        
+        h_prune.addWidget(QLabel("文件前缀:"))
+        h_prune.addWidget(self.sch_prefix)
+        h_prune.addWidget(QLabel("保留副本数:"))
+        h_prune.addWidget(self.spin_keep)
+        l_cfg.addLayout(h_prune)
+
+        # 6. 添加按钮
+        self.btn_add_task = QPushButton("添加并启动任务")
+        self.btn_add_task.clicked.connect(self.add_schedule_task)
+        l_cfg.addWidget(self.btn_add_task)
+
+        grp_cfg.setLayout(l_cfg)
+        layout.addWidget(grp_cfg)
+
+        # 7. 任务日志
+        self.log_area = QTextEdit()
+        self.log_area.setReadOnly(True)
+        self.log_area.append("调度器已就绪。")
+        layout.addWidget(QLabel("任务运行日志:"))
+        layout.addWidget(self.log_area)
+
+        self.tabs.addTab(tab, "计划任务 (Scheduler)")
+
     # --- 逻辑处理 ---
 
     def browse_dir(self, line_edit):
@@ -321,7 +423,7 @@ class MainWindow(QMainWindow):
         self.btn_start_backup.setEnabled(not locked)
         self.btn_restore.setEnabled(not locked)
         self.btn_verify.setEnabled(not locked)
-        self.progress_bar.setRange(0, 0 if locked else 100) # 忙碌状态动画
+        self.progress_bar.setRange(0, 0 if locked else 100)
 
     def run_backup(self):
         src = self.src_dir_edit.text()
@@ -332,16 +434,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "提示", "请填写源目录和目标文件路径")
             return
 
-        # 设置参数
         algo_idx = self.combo_algo.currentIndex() 
-        # C++ enum: HUFFMAN=0, LZSS=1, JOINED=2. ComboBox order matches this?
-        # My GUI order: Huffman, LZSS, Joined. 
-        # Assuming Huffman=0 in C++. Wait, check Compressor.h
-        # Compressor.h: HUFFMAN=0, LZSS=1, JOINED=2.
         self.backup_system.setCompressionAlgorithm(algo_idx)
         self.backup_system.setPassword(pwd)
 
-        # 设置过滤器
         if self.grp_filter.isChecked():
             opts = core.FilterOptions()
             opts.enabled = True
@@ -359,7 +455,6 @@ class MainWindow(QMainWindow):
             
             self.backup_system.setFilter(opts)
         else:
-            # 必须重置过滤器，否则上次的设置还在
             opts = core.FilterOptions()
             opts.enabled = False
             self.backup_system.setFilter(opts)
@@ -385,6 +480,34 @@ class MainWindow(QMainWindow):
         
         self.backup_system.setPassword(pwd)
         self.start_worker("verify", src)
+
+    def add_schedule_task(self):
+        src = self.sch_src_edit.text()
+        dst = self.sch_dst_edit.text()
+        prefix = self.sch_prefix.text()
+        keep = self.spin_keep.value()
+        pwd = self.sch_pwd_edit.text()
+        algo = self.sch_combo_algo.currentIndex()
+
+        if not src or not dst:
+            QMessageBox.warning(self, "错误", "源目录和存放目录不能为空")
+            return
+
+        is_realtime = (self.combo_mode.currentIndex() == 1)
+        task_id = -1
+        
+        if is_realtime:
+            task_id = self.scheduler.addRealtimeTask(src, dst, prefix, keep)
+            self.log_area.append(f"[{datetime.now().strftime('%H:%M:%S')}] 添加实时监控任务 ID: {task_id}")
+            self.log_area.append(f"   源: {src}\n   目标: {dst}")
+        else:
+            interval = self.spin_interval.value()
+            task_id = self.scheduler.addScheduledTask(src, dst, prefix, interval, keep)
+            self.log_area.append(f"[{datetime.now().strftime('%H:%M:%S')}] 添加定时任务 ID: {task_id}")
+            self.log_area.append(f"   每 {interval} 秒执行一次")
+
+        self.scheduler.setTaskPassword(task_id, pwd)
+        self.scheduler.setTaskCompressionAlgorithm(task_id, algo)
 
     def start_worker(self, task, *args):
         self.lock_ui(True)

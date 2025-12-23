@@ -42,7 +42,7 @@ public:
      * @param dstFile: 目标备份文件路径
      * @return true 成功, false 失败
      */
-    bool backup(const std::string& srcDir, const std::string& dstFile);
+    bool backup(const std::string& srcDir, const std::string& dstPath);
 
     /**
      * @brief 执行还原操作
