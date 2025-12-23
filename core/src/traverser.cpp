@@ -7,6 +7,7 @@
 #include <pwd.h>        // for getpwuid
 #include <grp.h>        // for getgrgid
 #include <limits.h>     // for PATH_MAX
+#include <filesystem>
 
 // macOS 的 major/minor 宏已在 sys/types.h 中定义
 // Linux 系统可能需要 sys/sysmacros.h
@@ -32,10 +33,16 @@ std::vector<Backup::FileInfo> Backup::Traverser::traverse(const std::string & pa
     // 检查路径是否存在
     struct stat pathStat;
     if (lstat(path.c_str(), &pathStat) == -1) {
-        throw std::runtime_error("Cannot open directory: " + path);
+        throw std::runtime_error("Cannot open path: " + path);
     }
 
-    traverseHelper(path, path, files);
+    if (S_ISDIR(pathStat.st_mode)) {
+        // 目录：递归遍历
+        traverseHelper(path, path, files);
+    } else {
+        // 非目录：直接收集该路径的元数据
+        files.push_back(getFileInfo(path, path));
+    }
     return files;
 }
 
@@ -79,6 +86,10 @@ FileInfo Traverser::getFileInfo(const std::string & fullPath, const std::string 
         }
     } else {
         info.relativePath = fullPath; // Fallback to absolute path if rootDir is not a prefix
+    }
+    // 当根就是文件本身时，relativePath 可能为空，这会导致打包时 name 为空，无法还原
+    if (info.relativePath.empty()) {
+        info.relativePath = std::filesystem::path(fullPath).filename().string();
     }
 
     struct stat fileStat;

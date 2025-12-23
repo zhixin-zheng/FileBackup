@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTabWidget, QFileDialog, QComboBox, QCheckBox, 
                              QGroupBox, QProgressBar, QMessageBox, QDateEdit,
                              QSpinBox, QTextEdit)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate, QDir
 
 # --- 样式表 (美化) ---
 STYLESHEET = """
@@ -162,13 +162,13 @@ class MainWindow(QMainWindow):
         grp_io = QGroupBox("输入/输出设置")
         layout_io = QVBoxLayout()
         
-        # 源目录
+        # 源路径（可选目录或单个文件）
         h1 = QHBoxLayout()
         self.src_dir_edit = QLineEdit()
-        self.src_dir_edit.setPlaceholderText("选择要备份的源目录...")
+        self.src_dir_edit.setPlaceholderText("选择要备份的源目录或单个文件...")
         btn_src = QPushButton("浏览...")
-        btn_src.clicked.connect(lambda: self.browse_dir(self.src_dir_edit))
-        h1.addWidget(QLabel("源目录:"))
+        btn_src.clicked.connect(lambda: self.browse_path(self.src_dir_edit))
+        h1.addWidget(QLabel("源路径:"))
         h1.addWidget(self.src_dir_edit)
         h1.addWidget(btn_src)
         layout_io.addLayout(h1)
@@ -418,6 +418,21 @@ class MainWindow(QMainWindow):
     def browse_file(self, line_edit):
         f, _ = QFileDialog.getOpenFileName(self, "打开备份", "", "Backup Files (*.bin);;All Files (*)")
         if f: line_edit.setText(f)
+
+    def browse_path(self, line_edit):
+        """
+        统一选择器：既可选目录也可选文件（通过非原生对话框允许目录选择）
+        """
+        dlg = QFileDialog(self, "选择源路径")
+        dlg.setFileMode(QFileDialog.FileMode.AnyFile)
+        dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
+        dlg.setOption(QFileDialog.Option.ShowDirsOnly, False)
+        dlg.setOption(QFileDialog.Option.ReadOnly, True)
+        dlg.setFilter(QDir.Filter.AllEntries | QDir.Filter.NoDotAndDotDot | QDir.Filter.AllDirs | QDir.Filter.Files)
+        if dlg.exec():
+            files = dlg.selectedFiles()
+            if files:
+                line_edit.setText(files[0])
 
     def lock_ui(self, locked):
         self.btn_start_backup.setEnabled(not locked)
