@@ -93,7 +93,7 @@ int main() {
 
     try {
         std::cout << "[1/6] Setting up environment..." << std::endl;
-        // createTestEnvironment(SRC_DIR);
+        createTestEnvironment(SRC_DIR);
         fs::remove(TEMP_PACK);
         fs::remove(FINAL_BACKUP);
         fs::remove(RESTORED_PACK);
@@ -131,13 +131,13 @@ int main() {
         std::cout << "[4/6] Verifying integrity..." << std::endl;
 
         // bool ok1 = compareFiles(SRC_DIR + "/王学扬_郑智馨-电影鉴赏作业.mp4", DST_DIR + "/王学扬_郑智馨-电影鉴赏作业.mp4");
-        bool ok1 = compareFiles(SRC_DIR + "/遮天（精校版）.txt", DST_DIR + "/遮天（精校版）.txt");
-        // bool ok1 = compareFiles(SRC_DIR + "/hello.txt", DST_DIR + "/hello.txt");
-        // bool ok2 = compareFiles(SRC_DIR + "/logs/app.log", DST_DIR + "/logs/app.log");
-        // bool ok3 = compareFiles(SRC_DIR + "/bigfile.txt", DST_DIR + "/bigfile.txt");
-        // bool ok4 = compareFiles(SRC_DIR + "/repeatfile.txt", DST_DIR + "/repeatfile.txt");
+        // bool ok1 = compareFiles(SRC_DIR + "/遮天（精校版）.txt", DST_DIR + "/遮天（精校版）.txt");
+        bool ok1 = compareFiles(SRC_DIR + "/hello.txt", DST_DIR + "/hello.txt");
+        bool ok2 = compareFiles(SRC_DIR + "/logs/app.log", DST_DIR + "/logs/app.log");
+        bool ok3 = compareFiles(SRC_DIR + "/bigfile.txt", DST_DIR + "/bigfile.txt");
+        bool ok4 = compareFiles(SRC_DIR + "/repeatfile.txt", DST_DIR + "/repeatfile.txt");
 
-        if (ok1) {
+        if (ok1 && ok2 & ok3 && ok4) {
             std::cout << "SUCCESS: Files verify matched!" << std::endl;
         } else {
             std::cerr << "FAILURE: Content mismatch!" << std::endl;

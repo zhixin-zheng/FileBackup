@@ -49,7 +49,9 @@ protected:
     }
 
     // 递归比较两个目录是否一致
-    bool compareDirectories(const std::string& dir1, const std::string& dir2) {
+    bool compareDirectories(const std::string& dir1, const std::string& wrapped_dir2) {
+        std::string dir2 = wrapped_dir2 + "/" + std::filesystem::path(dir1).filename().string();
+        std::cerr << "[Compare] Comparing " << dir1 << " with " << dir2 << std::endl;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(dir1)) {
             std::string relPath = std::filesystem::relative(entry.path(), dir1).string();
             std::string path2 = dir2 + "/" + relPath;
@@ -196,14 +198,15 @@ TEST_F(BackupSystemTest, BackupWithFilter) {
 
     // --- 验证结果 ---
     // 1. 验证应保留的文件 (符合后缀且足够小)
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/file1.txt"));       // 来自 SetUp
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/file2.log"));       // 来自 SetUp
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/extra.txt"));       // 新增的小 .txt
+    std::string real_dstDir = dstDir + "/" + std::filesystem::path(srcDir).filename().string();
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/file1.txt"));       // 来自 SetUp
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/file2.log"));       // 来自 SetUp
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/extra.txt"));       // 新增的小 .txt
 
     // 2. 验证应被过滤的文件
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/subdir/file3.bin")); // 后缀 .bin 不在白名单
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/ignore.jpg"));       // 后缀 .jpg 不在白名单
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/large_doc.txt"));    // 也是 .txt 但超过了 maxSize (10KB > 5KB)
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/subdir/file3.bin")); // 后缀 .bin 不在白名单
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/ignore.jpg"));       // 后缀 .jpg 不在白名单
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/large_doc.txt"));    // 也是 .txt 但超过了 maxSize (10KB > 5KB)
 
     std::cout << "[Test Info] Filter test passed: Only valid files were restored." << std::endl;
 }
@@ -233,13 +236,14 @@ TEST_F(BackupSystemTest, BackupWithNameRegex) {
     ASSERT_TRUE(bs.restore(backupFile, dstDir));
 
     // --- 验证 ---
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/report_2023.txt"));
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/report_2024.txt"));
+    std::string real_dstDir = dstDir + "/" + std::filesystem::path(srcDir).filename().string();
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/report_2023.txt"));
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/report_2024.txt"));
     
     // 原有的 file1.txt, file2.log 也不符合 "report_.*"，会被过滤
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/file1.txt"));
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/draft_notes.txt"));
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/image.png"));
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/file1.txt"));
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/draft_notes.txt"));
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/image.png"));
 
     std::cout << "[Test Info] Regex filter test passed." << std::endl;
 }
@@ -272,14 +276,15 @@ TEST_F(BackupSystemTest, BackupWithNameKeywords) {
     ASSERT_TRUE(bs.restore(backupFile, dstDir));
 
     // --- 验证保留的文件 ---
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/project_alpha_v1.code")); // 匹配 "alpha"
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/notes_alpha.txt"));       // 匹配 "alpha"
-    EXPECT_TRUE(std::filesystem::exists(dstDir + "/calc(v1+2).cpp"));        // 匹配 "(v1+2)" (特殊字符应被转义)
+    std::string real_dstDir = dstDir + "/" + std::filesystem::path(srcDir).filename().string();
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/project_alpha_v1.code")); // 匹配 "alpha"
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/notes_alpha.txt"));       // 匹配 "alpha"
+    EXPECT_TRUE(std::filesystem::exists(real_dstDir + "/calc(v1+2).cpp"));        // 匹配 "(v1+2)" (特殊字符应被转义)
 
     // --- 验证被过滤的文件 ---
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/project_beta_v2.code")); // 不包含关键字
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/vacation.jpg"));         // 不包含关键字
-    EXPECT_FALSE(std::filesystem::exists(dstDir + "/file1.txt"));            // 原有的文件也不包含
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/project_beta_v2.code")); // 不包含关键字
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/vacation.jpg"));         // 不包含关键字
+    EXPECT_FALSE(std::filesystem::exists(real_dstDir + "/file1.txt"));            // 原有的文件也不包含
 
     std::cout << "[Test Info] Keyword to Regex conversion test passed." << std::endl;
 }
