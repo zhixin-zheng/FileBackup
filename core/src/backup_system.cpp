@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <regex>
+#include <chrono>
 
 namespace Backup {
 
@@ -151,7 +152,11 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstPath)
 
         // 3. 压缩 (Compress)
         Compressor compressor;
+        auto start = std::chrono::high_resolution_clock::now();
         std::vector<uint8_t> compressedData = compressor.compress(data, static_cast<CompressionAlgorithm>(m_compressionAlgo));
+        auto end =  std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+        std::cout << "[Backup] Compression took " << duration << " s." << std::endl;
         std::cout << "[Backup] Compressed size: " << compressedData.size() << " bytes." << std::endl;
         
         // 释放原始数据内存
