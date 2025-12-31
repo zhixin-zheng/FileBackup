@@ -90,6 +90,8 @@ target_link_libraries(test_encryptor
     GTest::gtest_main
 )
 
+gtest_discover_tests(test_encryptor)
+
 
 # 集成测试 1 (遍历器、打包器、压缩器)
 
@@ -101,6 +103,8 @@ target_link_libraries(test_integration_1
     GTest::gtest_main
 )
 
+gtest_discover_tests(test_integration_1)
+
 # 集成测试 2 (遍历器、打包器、压缩器、加密器)
 
 add_executable(test_backup_system tests/test_backup_system.cpp)
@@ -110,4 +114,6 @@ target_link_libraries(test_backup_system
     backup_core
     GTest::gtest_main
 )
+
+gtest_discover_tests(test_backup_system)
 
