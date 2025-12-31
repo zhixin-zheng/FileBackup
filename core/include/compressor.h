@@ -95,9 +95,12 @@ private:
      */
     bool readBit(const std::vector<uint8_t>& input, size_t& byteIndex, int& bitIndex);
 
-    static const int LZSS_WINDOW_SIZE = 4095;                            // LZSS 窗口大小
-    static const int LZSS_MIN_MATCH_LENGTH = 3;                          // LZSS 最小匹配长度
-    static const int LZSS_MAX_MATCH_LENGTH = 15 + LZSS_MIN_MATCH_LENGTH; // LZSS 最大匹配长度
+    static const int LZSS_WINDOW_SIZE = 32767;                            // LZSS 窗口大小
+    static const int LZSS_MIN_MATCH_LENGTH = 4;                          // LZSS 最小匹配长度
+    static const int LZSS_MAX_MATCH_LENGTH = 255; // LZSS 最大匹配长度
+    // static const int LZSS_WINDOW_SIZE = 4095;                            // LZSS 窗口大小
+    // static const int LZSS_MIN_MATCH_LENGTH = 3;                          // LZSS 最小匹配长度
+    // static const int LZSS_MAX_MATCH_LENGTH = 15 + LZSS_MIN_MATCH_LENGTH; // LZSS 最大匹配长度
 
     static const int HASH_BITS = 15;                                     // 哈希表位数
     static const int HASH_SIZE = 1 << HASH_BITS;                         // 哈希表大小 32K
@@ -114,7 +117,7 @@ private:
     };
     Match findLongestMatch(const std::vector<uint8_t> & input, size_t cursor);
 
-    uint16_t hash_func(uint8_t b1, uint8_t b2, uint8_t b3) { return ((b1 << 10) ^ (b2 << 5) ^ b3) & (HASH_SIZE - 1); }
+    uint16_t hash_func(uint8_t b1, uint8_t b2, uint8_t b3) { return ((static_cast<uint32_t>(b1) << 10) ^ (static_cast<uint32_t>(b2) << 5) ^ b3) & (HASH_SIZE - 1);  }
 };
 
 }  // namespace Backup
