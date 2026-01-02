@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTabWidget, QFileDialog, QComboBox, QCheckBox, 
                              QGroupBox, QProgressBar, QMessageBox, QDateEdit,
                              QSpinBox, QTextEdit)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate, QDir
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QDate
 
 # --- 样式表 (美化) ---
 STYLESHEET = """
@@ -166,11 +166,14 @@ class MainWindow(QMainWindow):
         h1 = QHBoxLayout()
         self.src_dir_edit = QLineEdit()
         self.src_dir_edit.setPlaceholderText("选择要备份的源目录或单个文件...")
-        btn_src = QPushButton("浏览...")
-        btn_src.clicked.connect(lambda: self.browse_path(self.src_dir_edit))
+        btn_src_dir = QPushButton("目录")
+        btn_src_dir.clicked.connect(lambda: self.browse_dir(self.src_dir_edit))
+        btn_src_file = QPushButton("文件")
+        btn_src_file.clicked.connect(lambda: self.browse_file(self.src_dir_edit))
         h1.addWidget(QLabel("源路径:"))
         h1.addWidget(self.src_dir_edit)
-        h1.addWidget(btn_src)
+        h1.addWidget(btn_src_dir)
+        h1.addWidget(btn_src_file)
         layout_io.addLayout(h1)
 
         # 目标目录（或目标文件）

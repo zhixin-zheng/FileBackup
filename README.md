@@ -17,7 +17,7 @@ First, set up the Python environment. This ensures CMake finds the correct Pytho
 ```bash
 python3 -m venv venv
 
-source venv/bin/activate
+python3 -m venv venv
 
 pip install PyQt6
 ```
