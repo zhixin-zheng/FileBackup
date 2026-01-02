@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
         统一选择器：既可选目录也可选文件（通过非原生对话框允许目录选择）
         """
         dlg = QFileDialog(self, "选择源路径")
-        dlg.setFileMode(QFileDialog.FileMode.AnyFile)
+        dlg.setFileMode(QFileDialog.FileMode.Directory)
         dlg.setOption(QFileDialog.Option.DontUseNativeDialog, True)
         dlg.setOption(QFileDialog.Option.ShowDirsOnly, False)
         dlg.setOption(QFileDialog.Option.ReadOnly, True)
@@ -460,7 +460,7 @@ class MainWindow(QMainWindow):
             
             ext_str = self.ext_edit.text().strip()
             if ext_str:
-                opts.extensions = [e if e.startswith('.') else f".{e}" for e in ext_str.split()]
+                opts.suffixes = [e if e.startswith('.') else f".{e}" for e in ext_str.split()]
             
             try:
                 opts.minSize = int(self.min_size_edit.text())
