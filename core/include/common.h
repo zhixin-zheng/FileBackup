@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <sys/types.h>
+#include <cstdint>
 
 namespace Backup{
 

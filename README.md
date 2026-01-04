@@ -29,7 +29,14 @@ Open a terminal and run the following command to install all dependencies:
 
 ```bash
 sudo apt update
-sudo apt install -y build-essential cmake python3 python3-venv libssl-dev pybind11-dev
+sudo apt install -y build-essential cmake python3 python3-venv libssl-dev pybind11-dev openssl
+```
+
+Additionally, install the required XCB libraries for PyQt6:
+
+```bash
+sudo apt update
+sudo apt install libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
 ```
 
 **macOS:**
@@ -51,7 +58,10 @@ If you don't have an existing virtual environment, it is recommended to create a
 ```bash
 python3 -m venv venv
 
-python3 -m venv venv
+source venv/bin/activate
+```
+
+Then, install PyQt6 (activate the virtual environment first):
 
 ```bash
 pip install PyQt6

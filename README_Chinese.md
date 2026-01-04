@@ -31,6 +31,13 @@ sudo apt update
 sudo apt install -y build-essential cmake python3 python3-venv libssl-dev pybind11-dev
 ```
 
+另外，安装 PyQt6 所需的 XCB 库：
+
+```bash
+sudo apt update
+sudo apt install libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
+```
+
 **macOS 系统：**
 
 如果您安装了 [Homebrew](https://brew.sh/)，请运行：
