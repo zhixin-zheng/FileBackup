@@ -169,7 +169,7 @@ class MainWindow(QMainWindow):
         btn_src_dir = QPushButton("目录")
         btn_src_dir.clicked.connect(lambda: self.browse_dir(self.src_dir_edit))
         btn_src_file = QPushButton("文件")
-        btn_src_file.clicked.connect(lambda: self.browse_file(self.src_dir_edit))
+        btn_src_file.clicked.connect(lambda: self.browse_file(self.src_dir_edit, "选择源文件", "All Files (*)"))
         h1.addWidget(QLabel("源路径:"))
         h1.addWidget(self.src_dir_edit)
         h1.addWidget(btn_src_dir)
@@ -195,7 +195,7 @@ class MainWindow(QMainWindow):
         layout_opt = QHBoxLayout()
 
         self.combo_algo = QComboBox()
-        self.combo_algo.addItems(["Huffman (更紧凑)", "LZSS (更快)", "Joined (混合)"])
+        self.combo_algo.addItems(["Huffman", "LZSS (更快)", "Joined (混合)"])
         self.combo_algo.setCurrentIndex(1) 
         self.pwd_edit = QLineEdit()
         self.pwd_edit.setPlaceholderText("设置密码 (留空则不加密)")
@@ -269,7 +269,7 @@ class MainWindow(QMainWindow):
         h1 = QHBoxLayout()
         self.res_src_edit = QLineEdit()
         btn_src = QPushButton("选择文件...")
-        btn_src.clicked.connect(lambda: self.browse_file(self.res_src_edit))
+        btn_src.clicked.connect(lambda: self.browse_file(self.res_src_edit, "选择备份文件", "Backup Files (*.bin);;All Files (*)"))
         h1.addWidget(QLabel("备份文件:"))
         h1.addWidget(self.res_src_edit)
         h1.addWidget(btn_src)
@@ -418,8 +418,8 @@ class MainWindow(QMainWindow):
         f, _ = QFileDialog.getSaveFileName(self, "保存备份", "", "Backup Files (*.bin);;All Files (*)")
         if f: line_edit.setText(f)
 
-    def browse_file(self, line_edit):
-        f, _ = QFileDialog.getOpenFileName(self, "打开备份", "", "Backup Files (*.bin);;All Files (*)")
+    def browse_file(self, line_edit, title="选择文件", file_filter="All Files (*)"):
+        f, _ = QFileDialog.getOpenFileName(self, title, "", file_filter)
         if f: line_edit.setText(f)
 
     def browse_path(self, line_edit):
