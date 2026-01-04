@@ -122,7 +122,7 @@ TEST_F(BackupSystemTest, RestoreWithWrongPassword) {
         BackupSystem bs;
         bs.setPassword("WrongPassword");
         // 还原应该失败（解密失败或数据损坏）
-        EXPECT_FALSE(bs.restore(backupFile, dstDir));
+        EXPECT_THROW(bs.restore(backupFile, dstDir), std::runtime_error);
     }
 }
 
@@ -151,7 +151,7 @@ TEST_F(BackupSystemTest, VerifyBackup) {
     // 验证：使用错误密码
     BackupSystem bsWrong;
     bsWrong.setPassword("Wrong");
-    EXPECT_FALSE(bsWrong.verify(backupFile));
+    EXPECT_THROW(bsWrong.verify(backupFile), std::runtime_error);
 
     // 验证：破坏文件
     {
@@ -159,14 +159,14 @@ TEST_F(BackupSystemTest, VerifyBackup) {
         f.seekp(10); // 破坏头部数据
         f.put(0xFF); 
     }
-    EXPECT_FALSE(bs.verify(backupFile));
+    EXPECT_THROW(bs.verify(backupFile), std::runtime_error);
 }
 
 // 6. 空目录或不存在的目录
 TEST_F(BackupSystemTest, InvalidSource) {
     BackupSystem bs;
     // 备份不存在的目录
-    EXPECT_FALSE(bs.backup("/path/to/nowhere", backupFile));
+    EXPECT_THROW(bs.backup("/path/to/nowhere", backupFile), std::runtime_error);
 }
 
 // 7. [NEW] 过滤器测试：后缀名与大小限制
