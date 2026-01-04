@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <unistd.h> // for symlink, unlink
 
 namespace Backup {
@@ -127,12 +128,19 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
 
     if (file.type == FileType::DIRECTORY) {
         header->typeflag = '5';
-        // 目录大小为0
     } else if (file.type == FileType::SYMLINK) {
         header->typeflag = '2';
-        // 符号链接大小为0，目标在 linkname 中
-        // 假设 FileInfo 已经读取了 linkTarget
         std::strncpy(header->linkname, file.linkTarget.c_str(), sizeof(header->linkname) - 1);
+    } else if (file.type == FileType::CHARACTER_DEVICE) {
+        header->typeflag = '3';
+    } else if (file.type == FileType::BLOCK_DEVICE) {
+        header->typeflag = '4';
+    } else if (file.type == FileType::FIFO) {
+        header->typeflag = '6';
+    } else if (file.type == FileType::SOCKET) {
+        // USTAR 不直接支持 Socket，通常跳过或标记为常规文件
+        // 这里我们标记为 'S' (非标准但常见) 以便识别，或者保持 '0'
+        header->typeflag = 'S'; 
     } else {
         header->typeflag = '0';
         fileSize = file.size;
@@ -150,12 +158,8 @@ void Packer::fillHeader(const FileInfo& file, TarHeader* header) {
 
     // 6. 设备号（仅用于字符设备和块设备）
     if (file.type == FileType::CHARACTER_DEVICE || file.type == FileType::BLOCK_DEVICE) {
-        header->typeflag = (file.type == FileType::CHARACTER_DEVICE) ? '3' : '4';
         toOctal(header->devmajor, file.deviceMajor, sizeof(header->devmajor));
         toOctal(header->devminor, file.deviceMinor, sizeof(header->devminor));
-    } else {
-        // 非设备文件填空字符或0
-        // 标准通常留空，toOctal 填的是数字字符串，这里手动置零或空格均可，通常保持为0
     }
 
     // 7. 校验和 (必须是最后计算，因为它依赖于 header 中其他所有字段的值)
@@ -237,6 +241,24 @@ bool Packer::unpack(const std::string& inputArchivePath, const std::string& outp
                 }
             }
         } 
+        else if (type == '3' || type == '4') { // 字符设备或块设备
+            mode_t mode = (type == '3') ? S_IFCHR : S_IFBLK;
+            uint32_t devMajor = fromOctal(header.devmajor, sizeof(header.devmajor));
+            uint32_t devMinor = fromOctal(header.devminor, sizeof(header.devminor));
+            if (std::filesystem::exists(destPath)) std::filesystem::remove(destPath);
+            if (mknod(destPath.string().c_str(), mode | 0666, makedev(devMajor, devMinor)) != 0) {
+                std::cerr << "警告: 无法创建设备文件 " << destPath << " (可能需要 sudo)" << std::endl;
+            }
+        }
+        else if (type == '6') { // FIFO
+            if (std::filesystem::exists(destPath)) std::filesystem::remove(destPath);
+            if (mkfifo(destPath.string().c_str(), 0666) != 0) {
+                std::cerr << "警告: 无法创建 FIFO " << destPath << std::endl;
+            }
+        }
+        else if (type == 'S') { // Socket (非标准)
+            std::cerr << "信息: 跳过 Socket 文件还原 " << destPath << " (Socket 应由进程创建)" << std::endl;
+        }
         else { // 常规文件 ('0' 或 '\0')
             extractFileContent(archive, destPath.string(), fileSize);
         }
