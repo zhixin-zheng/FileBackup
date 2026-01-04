@@ -66,8 +66,10 @@ source venv/bin/activate
 pip install PyQt6
 ```
 若运行出错，还需安装：
-sudo apt update
-sudo apt install libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
+```bash
+pip install PyQt6
+```
+
 ### 3. 构建 C++ 核心
 
 在虚拟环境激活的情况下手动运行以下命令：
