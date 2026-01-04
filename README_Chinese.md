@@ -67,7 +67,8 @@ pip install PyQt6
 ```
 若运行出错，还需安装：
 ```bash
-pip install PyQt6
+sudo apt update
+sudo apt install libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0
 ```
 
 ### 3. 构建 C++ 核心
