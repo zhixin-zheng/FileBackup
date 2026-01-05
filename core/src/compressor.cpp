@@ -51,119 +51,10 @@ const size_t CHUNK_SIZE = 8 * 1024 * 1024; // 8 MB
 //     }
 // }
 
-// --------------- parallel v1 ---------------
-
-// std::vector<uint8_t> Compressor::compress(const std::vector<uint8_t>& input, CompressionAlgorithm algo) {
-//     if (input.empty()) return {};
-
-//     // 如果文件小于两倍分块大小，直接单线程处理，避免多线程调度开销
-//     if (input.size() < CHUNK_SIZE * 2) {
-//         std::vector<uint8_t> output;
-//         output.push_back(static_cast<uint8_t>(algo));
-        
-//         std::vector<uint8_t> data;
-//         if (algo == CompressionAlgorithm::HUFFMAN) data = compressHuffman(input);
-//         else if (algo == CompressionAlgorithm::LZSS) data = compressLZSS(input);
-//         else if (algo == CompressionAlgorithm::JOINED) data = compressJoined(input);
-        
-//         output.insert(output.end(), data.begin(), data.end());
-//         return output;
-//     }
-
-//     // --- 多线程并行分块逻辑 ---
-    
-//     // 1. 计算分块数量
-//     size_t numChunks = (input.size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
-//     std::vector<std::future<std::vector<uint8_t>>> futures;
-
-//     // 2. 启动异步任务
-//     for (size_t i = 0; i < numChunks; ++i) {
-//         size_t start = i * CHUNK_SIZE;
-//         size_t end = std::min(start + CHUNK_SIZE, input.size());
-        
-//         // 捕获必要的参数，启动并行计算
-//         futures.push_back(std::async(std::launch::async, [this, &input, start, end, algo]() {
-//             std::vector<uint8_t> chunkData(input.begin() + start, input.begin() + end);
-//             if (algo == CompressionAlgorithm::HUFFMAN) return compressHuffman(chunkData);
-//             if (algo == CompressionAlgorithm::LZSS) return compressLZSS(chunkData);
-//             return compressJoined(chunkData);
-//         }));
-//     }
-
-//     // 3. 汇总结果
-//     std::vector<uint8_t> finalOutput;
-//     // 写入特殊标识：0xEE 代表这是一个多线程分块压缩的文件
-//     finalOutput.push_back(0xEE); 
-//     finalOutput.push_back(static_cast<uint8_t>(algo));
-    
-//     // 写入块数量 (4字节)
-//     for(int i=0; i<4; ++i) finalOutput.push_back((numChunks >> (i*8)) & 0xFF);
-
-//     for (auto& f : futures) {
-//         std::vector<uint8_t> compressedChunk = f.get();
-//         // 写入每个块的大小 (4字节)，方便解压时跳转
-//         uint32_t chunkSize = static_cast<uint32_t>(compressedChunk.size());
-//         for(int i=0; i<4; ++i) finalOutput.push_back((chunkSize >> (i*8)) & 0xFF);
-//         // 写入块数据
-//         finalOutput.insert(finalOutput.end(), compressedChunk.begin(), compressedChunk.end());
-//     }
-
-//     return finalOutput;
-// }
-
-// std::vector<uint8_t> Compressor::decompress(const std::vector<uint8_t>& input) {
-//     if (input.empty()) return {};
-
-//     uint8_t marker = input[0];
-    
-//     // 处理普通压缩文件
-//     if (marker != 0xEE) {
-//         CompressionAlgorithm algo = static_cast<CompressionAlgorithm>(marker);
-//         std::vector<uint8_t> data(input.begin() + 1, input.end());
-//         if (algo == CompressionAlgorithm::HUFFMAN) return decompressHuffman(data);
-//         if (algo == CompressionAlgorithm::LZSS) return decompressLZSS(data);
-//         if (algo == CompressionAlgorithm::JOINED) return decompressJoined(data);
-//         throw std::runtime_error("Unknown algorithm");
-//     }
-
-//     // --- 处理并行分块压缩文件 ---
-//     CompressionAlgorithm algo = static_cast<CompressionAlgorithm>(input[1]);
-//     uint32_t numChunks = 0;
-//     for(int i=0; i<4; ++i) numChunks |= (static_cast<uint32_t>(input[2+i]) << (i*8));
-
-//     size_t currentPos = 6;
-//     std::vector<std::future<std::vector<uint8_t>>> futures;
-
-//     for (uint32_t i = 0; i < numChunks; ++i) {
-//         uint32_t chunkSize = 0;
-//         for(int j=0; j<4; ++j) chunkSize |= (static_cast<uint32_t>(input[currentPos+j]) << (j*8));
-//         currentPos += 4;
-
-//         std::vector<uint8_t> chunkData(input.begin() + currentPos, input.begin() + currentPos + chunkSize);
-//         currentPos += chunkSize;
-
-//         futures.push_back(std::async(std::launch::async, [this, chunkData, algo]() {
-//             if (algo == CompressionAlgorithm::HUFFMAN) return decompressHuffman(chunkData);
-//             if (algo == CompressionAlgorithm::LZSS) return decompressLZSS(chunkData);
-//             return decompressJoined(chunkData);
-//         }));
-//     }
-
-//     std::vector<uint8_t> result;
-//     for (auto& f : futures) {
-//         std::vector<uint8_t> decompressedChunk = f.get();
-//         result.insert(result.end(), decompressedChunk.begin(), decompressedChunk.end());
-//     }
-
-//     return result;
-// }
-
-// --------------- parallel v2 ---------------
-
 std::vector<uint8_t> Compressor::compress(const std::vector<uint8_t>& input, CompressionAlgorithm algo) {
     if (input.empty()) return {};
 
-    // 如果文件较小，直接单线程处理
+    // 小文件直接单线程
     if (input.size() < CHUNK_SIZE * 2) {
         std::vector<uint8_t> output;
         output.push_back(static_cast<uint8_t>(algo));
@@ -175,7 +66,7 @@ std::vector<uint8_t> Compressor::compress(const std::vector<uint8_t>& input, Com
         return output;
     }
 
-    // --- 线程池化分块压缩逻辑 ---
+    // 线程池化分块压缩逻辑
     
     size_t numChunks = (input.size() + CHUNK_SIZE - 1) / CHUNK_SIZE;
     std::vector<std::vector<uint8_t>> chunkResults(numChunks);
@@ -235,7 +126,7 @@ std::vector<uint8_t> Compressor::decompress(const std::vector<uint8_t>& input) {
         throw std::runtime_error("Unknown algorithm");
     }
 
-    // --- 线程池化解压逻辑 ---
+    // 线程池化解压逻辑
     CompressionAlgorithm algo = static_cast<CompressionAlgorithm>(input[1]);
     uint32_t numChunks = 0;
     for(int i=0; i<4; ++i) numChunks |= (static_cast<uint32_t>(input[2+i]) << (i*8));
@@ -471,56 +362,6 @@ void Compressor::deleteTree(HuffmanNode* node) {
     deleteTree(node->right);
     delete node;
 }
-
-// ==========================================
-// LZSS 压缩与解压缩实现
-// ==========================================
-
-// Compressor::Match Compressor::findLongestMatch(const std::vector<uint8_t> & input, size_t cursor) {
-//     Match bestMatch = {0, 0};
-//     size_t searchStart = (cursor > LZSS_WINDOW_SIZE) ? (cursor - LZSS_WINDOW_SIZE) : 0; // 不能写成 size_t searchStart = std::max(0, cursor - LZSS_WINDOW_SIZE);
-
-//     for (size_t i = searchStart; i < cursor; i++) {
-//         size_t len = 0;
-//         while (len < LZSS_MAX_MATCH_LENGTH && cursor + len < input.size() && input[i + len] == input[cursor + len]) {
-//             len++;
-//         }
-
-//         if (len > bestMatch.length) {
-//             bestMatch.offset = cursor - i;
-//             bestMatch.length = len;
-//         }
-//     }
-//     return bestMatch;
-// }
-
-// std::vector<uint8_t> Compressor::compressLZSS(const std::vector<uint8_t>& input) {
-//     std::vector<uint8_t> output;
-//     output.reserve(input.size());
-//     size_t cursor = 0;
-
-//     while (cursor < input.size()) {
-//         uint8_t flag = 0;
-//         std::vector<uint8_t> buffer; // [Flag Byte] [Token 1] [Token 2] ... [Token 8]
-//         for (int i = 0; i < 8 && cursor < input.size(); i++) {
-//             Match match = findLongestMatch(input, cursor);
-//             if (match.length >= LZSS_MIN_MATCH_LENGTH) {
-//                 flag |= (1 << i);
-//                 uint16_t off = static_cast<uint16_t>(match.offset);
-//                 uint8_t len = static_cast<uint8_t>(match.length - LZSS_MIN_MATCH_LENGTH);
-//                 buffer.push_back((off >> 4) & 0xFF);
-//                 buffer.push_back(((off & 0x0F) << 4) | (len & 0x0F));
-//                 cursor += match.length;
-//             } else {
-//                 buffer.push_back(input[cursor]);
-//                 cursor += 1;
-//             }
-//         }
-//         output.push_back(flag);
-//         output.insert(output.end(), buffer.begin(), buffer.end());
-//     }
-//     return output;
-// }
 
 std::vector<uint8_t> Compressor::compressLZSS(const std::vector<uint8_t>& input) {
     std::vector<uint8_t> output;

@@ -15,7 +15,7 @@ namespace Backup {
 const char* MAGIC = "ustar"; 
 const char* VERSION = "00";
 
-// --- 工具辅助函数 ---
+// 工具辅助函数
 
 // 将数字格式化为八进制字符串(用于头部)
 template<typename T>
@@ -35,7 +35,7 @@ uint64_t Packer::fromOctal(const char* ptr, size_t len) {
     }
 }
 
-// --- 打包实现 ---
+// 打包实现
 
 bool Packer::pack(const std::vector<FileInfo>& files, const std::string& outputArchivePath) {
     std::ofstream archive(outputArchivePath, std::ios::binary | std::ios::trunc);
@@ -188,7 +188,7 @@ bool Packer::writeFileContent(const FileInfo& file, std::ofstream& archive) {
     return true;
 }
 
-// --- 提取实现 ---
+// 提取实现
 
 bool Packer::unpack(const std::string& inputArchivePath, const std::string& outputDir) {
     std::ifstream archive(inputArchivePath, std::ios::binary);

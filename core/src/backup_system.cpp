@@ -50,29 +50,23 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstPath)
     std::string rootName = sourcePath.filename().string();
     if (rootName.empty()) rootName = "backup_root";
 
-    // 2. 智能解析目标路径
+    // 2. 解析目标路径
     std::filesystem::path finalDstPath;
     std::filesystem::path inputDst(dstPath);
-
-    // 判断逻辑：
-    // A. 如果 dstPath 为空 -> 默认生成在源目录同级
-    // B. 如果 dstPath 是一个已存在的目录 -> 在该目录下自动生成文件名
-    // C. 如果 dstPath 没有扩展名 (且不是已存在的文件) -> 视为目录路径 -> 自动生成
-    // D. 否则 -> 视为完整文件路径 (兼容 Scheduler)
     
     bool treatAsDirectory = false;
 
     if (dstPath.empty()) {
-        // 情况 A: 默认同级
+        // 默认同级
         inputDst = sourcePath.parent_path();
         treatAsDirectory = true;
     } 
     else if (std::filesystem::is_directory(inputDst)) {
-        // 情况 B: 已存在目录
+        // 已存在目录
         treatAsDirectory = true;
     }
     else if (!inputDst.has_extension() && !std::filesystem::exists(inputDst)) {
-        // 情况 C: 无扩展名，视为新目录
+        // 无扩展名，视为新目录
         // 尝试创建该目录
         std::filesystem::create_directories(inputDst);
         treatAsDirectory = true;
@@ -91,7 +85,7 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstPath)
         }
         std::cout << "[Backup] Auto-generated filename: " << finalDstPath.string() << std::endl;
     } else {
-        // 情况 D: 指定了具体文件
+        // 指定了具体文件
         finalDstPath = inputDst;
         // 确保父目录存在
         if (finalDstPath.has_parent_path()) {
@@ -130,10 +124,7 @@ bool BackupSystem::backup(const std::string& srcDir, const std::string& dstPath)
     // --------------------
 
 
-    // 2. 打包 (Pack) -> 这里需要 Packer 支持输出到内存流
-    // 由于目前的 Packer::pack 是直接写文件的，我们需要稍微变通一下。
-    // 为了不修改 Packer 接口，我们先打包到一个临时文件，然后读入内存。
-    // *更好的做法* 是修改 Packer 使其支持 std::ostream，但为了兼容你现有的代码，我们用临时文件法。
+    // 2. 打包 (Pack)
     
     std::string tempTarFile = targetFileStr + ".tmp.tar";
     Packer packer;
@@ -286,12 +277,10 @@ bool BackupSystem::restore(const std::string& srcFile, const std::string& dstDir
     // 释放压缩数据内存
     std::vector<uint8_t>().swap(data);
 
-    // 2. [新增逻辑] 预读 TAR 包中的根目录名称
+    // 2. 预读 TAR 包中的根目录名称
     std::string rootName;
     if (tarData.size() > 100) {
         // TAR 头部前100字节是文件名
-        // 我们假设备份时的第一个文件路径类似于 "RootName/file1.txt"
-        // 注意：需要确保以 null 结尾或安全构建 string
         char nameBuf[101] = {0};
         std::memcpy(nameBuf, tarData.data(), 100);
         std::string firstPath(nameBuf);
@@ -306,7 +295,7 @@ bool BackupSystem::restore(const std::string& srcFile, const std::string& dstDir
 
     if (rootName.empty()) rootName = "restored_files"; // 兜底
 
-    // 3. [新增逻辑] 检查冲突并计算最终目标名称
+    // 3. 检查冲突并计算最终目标名称
     std::filesystem::path targetBasePath = std::filesystem::path(dstDir) / rootName;
     std::filesystem::path finalDestPath = targetBasePath;
     int counter = 1;
@@ -322,7 +311,7 @@ bool BackupSystem::restore(const std::string& srcFile, const std::string& dstDir
     // 4. 执行解压
     if (isConflict) {
         // 如果有冲突，我们需要先解压到一个临时目录，然后重命名
-        // 例如：解压到 dstDir/.tmp_restore_xyz/RootName
+        // 例如：dstDir/.tmp_restore_xyz/RootName
         std::string tempFolderName = ".tmp_restore_" + std::to_string(std::time(nullptr));
         std::filesystem::path tempExtractPath = std::filesystem::path(dstDir) / tempFolderName;
         std::filesystem::create_directories(tempExtractPath);
@@ -365,9 +354,8 @@ bool BackupSystem::verify(const std::string& backupFile) {
     std::cout << "[Verify] Verifying backup: " << backupFile << std::endl;
     // 验证逻辑：尝试解密 -> 尝试解压 -> 检查 Tar 头是否合法
     // 如果全过程无异常抛出，则认为文件完整性基本没问题。
-    // 这比单纯比较哈希更强，因为它验证了逻辑结构。
     
-    // 借用 restore 的前半部分逻辑，但不进行最后的 unpack 到磁盘
+    // 用 restore 的前半部分逻辑，但不进行最后的 unpack 到磁盘
     std::vector<uint8_t> data = readFile(backupFile);
     if (data.empty()) throw std::runtime_error("备份文件为空或无法读取。");
 

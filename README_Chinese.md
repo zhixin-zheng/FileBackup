@@ -1,6 +1,6 @@
 # FileBackup
 
-中文 | [English](./README.md)
+中文 | [English](./)
 
 本项目包含 C++ 编写的高性能备份核心以及基于 PyQt6 的图形界面。
 
